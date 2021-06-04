@@ -1,0 +1,402 @@
+---
+title: "PRAC 2 - Tipología y ciclo de vida de los datos"
+author: 'Autor: Pablo Martín Sánchez - Julia Camarena Pérez'
+date: "Junio 2021"
+output: html_notebook
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#PRACTICA 2 
+
+Cargamos las librerías necesarias: 
+
+```{r message= FALSE, warning=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(reshape2)
+```
+
+
+Cargamos el dataset del titanic, obtenido del siguiente concurso de kagle accesible mediante la siguiente url: 
+
+
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_dataset <- read.csv("train.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+
+```
+
+
+##1. Descripción del dataset y limpieza de los datos
+
+Comprobamos el tipo de variable que tiene el dataset: 
+
+```{r message= FALSE, warning=FALSE}
+
+str(titanic_dataset) 
+
+```
+
+Miramos las estadísticas basicas de cada atributo: 
+
+```{r message= FALSE, warning=FALSE}
+
+summary(titanic_dataset) 
+
+```
+Comprobamos si existen nulos o espacios vacíos en el caso de las variables categóricas:
+
+```{r message= FALSE, warning=FALSE}
+
+colSums(is.na(titanic_dataset))
+colSums(titanic_dataset=="")
+
+```
+
+Vemos como obtenemos variables nulas, en el caso de la variable Age, en vez de rellenarlas optaremos por eliminarlas directamente para intentar que no afecte en un futuro a todo lo que haremos en torno a la edad, igual con la variable Embarked.
+
+
+Ahora miraremos los valores extremos de todas las variables cuantitativas:
+
+```{r message= FALSE, warning=FALSE}
+
+layout(matrix(1:6, ncol=3))
+
+boxplot(titanic_dataset$Survived,xlab="Survived", which=1)
+
+boxplot(titanic_dataset$Pclass,xlab="Pclass", which=2)
+
+boxplot(titanic_dataset$Age, xlab="Age", which = 3)
+
+boxplot(titanic_dataset$SibSp, xlab="Sibsp", which=4)
+
+boxplot(titanic_dataset$Parch, xlab="Parch", which=5)
+
+
+
+```
+
+
+Como podemos observar tenemos algunos valores extremos pero dentro de los valores aceptables para cada caso, como por ejemplo en el número de hermanos (Sibsp) o de hijos(Parch) tenemos outliers como 8 o 6 respectivamente. En el caso de la edad, tenemos algunos por encima de 65 años que no los eliminaremos al no considerarlos outliers a pesar de estar por encima del tercer intercuartil. 
+
+Ahora vamos a eliminar todas aquellas filas que tengan la variable Age o Embarked nulas:
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na <- titanic_dataset[which(!is.na(titanic_dataset$Age)),]
+
+titanic_without_na <- titanic_without_na[which(titanic_without_na$Embarked!=""),]
+
+colSums(is.na(titanic_without_na))
+
+colSums(titanic_without_na =="")
+
+```
+
+Se decide categorizar la edad para mirar mas adelante si hay categorías que hayan sobrevivido más que otras.
+
+
+```{r message= FALSE, warning=FALSE}
+
+# Discretizamos
+titanic_without_na["Age_Segmented"] <- cut(titanic_without_na$Age, breaks = c(0,10,20,30,40,50,60,70,100), labels = c("0-9", "10-19", "20-29", "30-39","40-49","50-59","60-69","70-79"))
+# Observamos los datos discretizados.
+head(titanic_without_na)
+```
+
+
+Categorizamos la variable pclass para poder graficarla mejor, clasificando el estatus social en 1-Upper, 2-Middle y 3-Lower.
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na$Pclass_categorical <- titanic_without_na$Pclass
+
+titanic_without_na$Pclass_categorical <- gsub("1","Upper",titanic_without_na$Pclass_categorical)
+
+titanic_without_na$Pclass_categorical <- gsub("2","Middle",titanic_without_na$Pclass_categorical)
+
+titanic_without_na$Pclass_categorical <- gsub("3","Lower",titanic_without_na$Pclass_categorical)
+
+```
+
+
+Convertimos la variable categórica Sex en numérica para poder utilizarla más adelante en correlaciones y crear modelos:  
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na$Sex_numeric <- titanic_without_na$Sex
+
+titanic_without_na$Sex_numeric <- gsub("male","1",titanic_without_na$Sex_numeric)
+
+titanic_without_na$Sex_numeric <- gsub("female","2",titanic_without_na$Sex_numeric)
+
+titanic_without_na$Sex_numeric <- as.numeric(titanic_without_na$Sex_numeric)
+
+
+titanic_without_na$Sex_numeric[is.na(titanic_without_na$Sex_numeric)] <- 0
+```
+
+
+Transformarmos la bariable de embarked a numerica para comprobarla más adelante con la correlacion para ver si es importante:
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na$Embarked_numeric <- titanic_without_na$Embarked
+
+titanic_without_na$Embarked_numeric <- gsub("C","0",titanic_without_na$Embarked_numeric)
+
+titanic_without_na$Embarked_numeric <- gsub("Q","1",titanic_without_na$Embarked_numeric)
+
+titanic_without_na$Embarked_numeric <- gsub("S","2",titanic_without_na$Embarked_numeric)
+
+
+titanic_without_na$Embarked_numeric <- as.numeric(titanic_without_na$Embarked_numeric)
+
+
+```
+
+
+Categorizamos la variable Survived para poder graficarla comparando con el resto de atributos:
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na$Survived_Categorical <- titanic_without_na$Survived
+
+titanic_without_na$Survived_Categorical  <- gsub("1","Yes",titanic_without_na$Survived_Categorical)
+
+titanic_without_na$Survived_Categorical  <- gsub("0","No",titanic_without_na$Survived_Categorical)
+
+
+head(titanic_without_na)
+
+```
+
+Por ultimo, cambiamos las etiquetas de la variable categórica Embarked para que se entienda en que ciudad han embarcado:
+
+```{r message= FALSE, warning=FALSE}
+
+titanic_without_na$Embarked <- gsub("C","Cherbourg",  titanic_without_na$Embarked)
+titanic_without_na$Embarked <- gsub("Q","Queenstown", titanic_without_na$Embarked)
+titanic_without_na$Embarked <- gsub("S","Southampton",titanic_without_na$Embarked)
+
+```
+
+
+Ahora vamos a comprobar la normalización de las variables numéricas mediante las graficas Q-Q
+
+```{r message= FALSE, warning=FALSE}
+par(mfrow=c(2,2))
+for(i in 1:ncol(titanic_without_na)) {
+  if (is.numeric(titanic_without_na[,i])){
+    qqnorm(titanic_without_na[,i],main = paste("Normal Q-Q Plot for ",colnames(titanic_without_na)[i]))
+    qqline(titanic_without_na[,i],col="red")
+    hist(titanic_without_na[,i], 
+      main=paste("Histogram for ", colnames(titanic_without_na)[i]), 
+      xlab=colnames(titanic_without_na)[i], freq = FALSE)
+  }
+}
+
+```
+
+Vemos como la mayoría no son normales porque son en realidad variables realmente categóricas ya que indican si el pasajero ha sobrevivido (Survived), la clase social a la que pertenece (Pclass), el número de hermanos o de hijos que tiene (SibSp y Parch) o el propio Sex. 
+
+Solo vemos la edad y el PassengerId que son normales.  
+
+Vamos a guardar el dataframe con todos los datos añadidos y modificados como dataser resultante:
+
+```{r message= FALSE, warning=FALSE}
+
+write.csv(titanic_without_na,"\titanic_limpio.csv",row.names = FALSE, col.names = TRUE)
+
+```
+
+##3. Análisis de los datos
+
+###3.1 Correlación entre variables
+
+Ahora comprobaremos la correlación de las variables para ver cuales tienen mayor importancia sobre la Survived mediante una matriz de correlación:
+
+
+```{r message= FALSE, warning=FALSE}
+
+cormat <- round(cor(titanic_without_na[,c(2,3,6,7,8,15,16)]),2)
+
+melted_cormat <- melt(cormat)
+
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed() + geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) 
+```
+
+Como podemos observar, la variable Sex junto con la Pclass son las que mas influyen a la hora de supervivencia, sobretodo la Sex con un 0.54 de correlación. Es decir, el sexo influye a la hora de sobrevivir.
+
+
+###3.2 Contrastes de hipótesis
+
+Ahora vamos a tratar de contestar 3 preguntas mediante el contraste de hipótesis para concretar que grupos han sido los que más han sobrevivido:
+
+1. ¿Han sobrevivido más pasajeros hombres que mujeres?
+2. ¿Han sobrevivido más pasajeros menores de <= 30 años que mayores de 30?
+3. ¿Han sobrevivido más pasajeros de clase alta que de clase media y baja?
+
+
+Vamos con la primera pregunta:
+
+1. ¿Han sobrevivido más pasajeros hombres que mujeres?
+
+   m0 : pasajeros que han sobrevivido hombres
+   m1 : pasajeros que han sobrevivido mujeres
+
+   H0 = m0 <= m1
+   H1 = m0 > m1
+
+```{r message= FALSE, warning=FALSE}
+
+survived_male <- titanic_without_na[which(titanic_without_na$Sex == 'male'),"Survived"]
+
+
+survived_female <- titanic_without_na[which(titanic_without_na$Sex == 'female'),"Survived"]
+
+t.test(survived_male, survived_female, alternative = "greater")
+
+```
+Tras aplicar el contraste de hipótesis, aceptamos la hipótesis nula, ya que el pvalue>0,05 (teniendo en cuenta que hemos escogido un porcentaje de confianza del 95%). Afirmamos por tanto, que sobrevivieron más mujeres que hombres.
+ 
+
+2. ¿Han sobrevivido más personas menores de <= 30 años que mayores de 30?
+
+   m0 : pasajeros de menos de 30 años o de 30 años que han sobrevivido
+   m1 : pasajeros de mas de 30 años que han sobrevivido
+
+   H0 = m0 <= m1
+   H1 = m0 > m1
+
+```{r message= FALSE, warning=FALSE}
+
+survived_le_thirty <- titanic_without_na[which(titanic_without_na$Age <= 30),"Survived"]
+
+
+survived_g_thirty <- titanic_without_na[which(titanic_without_na$Age > 30),"Survived"]
+
+t.test(survived_le_thirty, survived_g_thirty, alternative = "greater")
+
+```
+Tras aplicar el contraste de hipótesis, aceptamos de nuevo la hipótesis nula, afirmando que sobrevivieron más pasajeros mayores de 30 años.
+
+
+3. ¿Han sobrevivido más pasajeros de clase alta que de clase media y baja?
+
+   m0 : pasajeros que han sobrevivido de clase alta
+   m1 : pasajeros que han sobrevivido de clase media y baja
+
+   H0 = m0 <= m1
+   H1 = m0 > m1
+
+
+```{r message= FALSE, warning=FALSE}
+
+survived_upper_class <- titanic_without_na[which(titanic_without_na$Pclass_categorical == 'Upper'),"Survived"]
+
+survived_medium_lower_class <- titanic_without_na[which(titanic_without_na$Pclass_categorical != 'Upper'),"Survived"]
+
+t.test(survived_upper_class, survived_medium_lower_class, alternative = "greater")
+
+```
+Rechazamos la hipótesis nula al ser el p-value inferior a nuestra alpha, que en este caso es 0.05.
+Por tanto podemos afirmar que han sobrevivido mas pasajeros de clase alta que de clase media y baja
+
+
+###3.3 Modelo predictivo
+
+Vamos a tratar de crear un modelo de regresión logística para ver si podemos crear un modelo suficientemente bueno que pueda predecir aquellos que puedan sobrevivir y ver así mediante los coeficienes de odds, ver aquellas categorías que más han sobrevivido. Pondremos como variable dependiente la variable Survived:
+
+```{r message= FALSE, warning=FALSE}
+
+model <- glm(titanic_without_na$Survived ~ titanic_without_na$Pclass_categorical + titanic_without_na$Age_Segmented + titanic_without_na$Sex, family = binomial(link=logit))
+
+```
+
+
+
+```{r message= FALSE, warning=FALSE}
+
+summary(model)
+
+```
+
+
+```{r message= FALSE, warning=FALSE}
+
+exp(coefficients(model))
+
+```
+
+##4 Visualización de los datos
+
+Pasamos a hacer una breve visualización de los datos, para comprobar en las variables categóricas aquellas clases que más han sobrevivido y, así, confirmar si las conclusiones que hemos ido obteniendo anteriormente se confirman.
+
+Mostramos primero como hemos visto con la correlación, si el sexo importa a la hora de sobrevivir:
+
+```{r message= FALSE, warning=FALSE}
+filas=dim(titanic_without_na)[1]
+# Visualizamos la relación entre las variables "sex" y "survival":
+ggplot(data=titanic_without_na[1:filas,],aes(x=Sex,fill=Survived_Categorical))+geom_bar()
+
+```
+
+Como podemos observar, se ve claramente como sobrevivieron más mujeres que hombres, confirmando la observación de la correlación en la que el sexo era importante a la hora de la supervivencia. 
+
+
+Ahora vamos a comprobar la clase social para ver si lo que nos indicaba las hipótesis inferidas anterioremente:
+
+
+```{r message= FALSE, warning=FALSE}
+filas=dim(titanic_without_na)[1]
+# Visualizamos la relación entre las variables "sex" y "survival":
+ggplot(data=titanic_without_na[1:filas,],aes(x=Pclass_categorical,fill=Survived_Categorical))+geom_bar()
+
+```
+
+Podemos observar como claramente de clase alta ha sobrevivido mucha mas gente que de clase media y baja, confirmando que nuestra hipótesis inferida era correcta.
+
+
+Ahora miremos para concretar si la franja de edad es influyente: 
+
+```{r message= FALSE, warning=FALSE}
+filas=dim(titanic_without_na)[1]
+# Visualizamos la relación entre las variables "sex" y "survival":
+ggplot(data=titanic_without_na[1:filas,],aes(x=Age_Segmented,fill=Survived_Categorical))+geom_bar()
+
+```
+
+Como vemos de 0-29 han sobrevivido muchos mas que de 30-79, confirmando así también nuestra hipótesis de que los menores de 30 años han sobrevivido más. 
+
+Ahora vamos a comprobar también si el lugar de embarque, a pesar de no tener una correlación aparente, hay algo interesante:  
+
+```{r message= FALSE, warning=FALSE}
+filas=dim(titanic_without_na)[1]
+# Visualizamos la relación entre las variables "sex" y "survival":
+ggplot(data=titanic_without_na[1:filas,],aes(x=Embarked,fill=Survived_Categorical))+geom_bar()
+
+```
+
+Como podemos observar, el lugar no es influyente en realidad aun que parezca que de Cherbourg hayan sobrevivido mas que de Queenstown o Southampton, ya que son otros los factores determinantes como el sexo o la clase social. Es decir, es posible por ejemplo que de Cherbourg haya mas mujeres de clase alta. 
+
+##5. Conclusiones
+
+
+
+
