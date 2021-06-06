@@ -2,7 +2,10 @@
 title: "PRAC 2 - Tipología y ciclo de vida de los datos"
 author: 'Autor: Pablo Martín Sánchez - Julia Camarena Pérez'
 date: "Junio 2021"
-output: html_notebook
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 
@@ -10,7 +13,7 @@ output: html_notebook
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#PRACTICA 2 
+# PRACTICA 2 
 
 Cargamos las librerías necesarias: 
 
@@ -34,7 +37,7 @@ titanic_dataset <- read.csv("train.csv", header=TRUE, sep=",", stringsAsFactors=
 ```
 
 
-##1. Descripción del dataset y limpieza de los datos
+## 1. Descripción del dataset
 
 Comprobamos el tipo de variable que tiene el dataset: 
 
@@ -51,7 +54,9 @@ Miramos las estadísticas basicas de cada atributo:
 summary(titanic_dataset) 
 
 ```
-Comprobamos si existen nulos o espacios vacíos en el caso de las variables categóricas:
+## 2 Limpieza de datos
+
+Primero comprobamos si existen nulos o espacios vacíos en el caso de las variables categóricas:
 
 ```{r message= FALSE, warning=FALSE}
 
@@ -213,13 +218,13 @@ Vamos a guardar el dataframe con todos los datos añadidos y modificados como da
 
 ```{r message= FALSE, warning=FALSE}
 
-write.csv(titanic_without_na,"\titanic_limpio.csv",row.names = FALSE, col.names = TRUE)
+write.csv(titanic_without_na,"titanic_limpio.csv",row.names = FALSE, col.names = TRUE)
 
 ```
 
-##3. Análisis de los datos
+## 3. Análisis de los datos
 
-###3.1 Correlación entre variables
+### 3.1 Correlación entre variables
 
 Ahora comprobaremos la correlación de las variables para ver cuales tienen mayor importancia sobre la Survived mediante una matriz de correlación:
 
@@ -244,7 +249,7 @@ ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
 Como podemos observar, la variable Sex junto con la Pclass son las que mas influyen a la hora de supervivencia, sobretodo la Sex con un 0.54 de correlación. Es decir, el sexo influye a la hora de sobrevivir.
 
 
-###3.2 Contrastes de hipótesis
+### 3.2 Contrastes de hipótesis
 
 Ahora vamos a tratar de contestar 3 preguntas mediante el contraste de hipótesis para concretar que grupos han sido los que más han sobrevivido:
 
@@ -319,7 +324,7 @@ Rechazamos la hipótesis nula al ser el p-value inferior a nuestra alpha, que en
 Por tanto podemos afirmar que han sobrevivido mas pasajeros de clase alta que de clase media y baja
 
 
-###3.3 Modelo predictivo
+### 3.3 Modelo predictivo
 
 Vamos a tratar de crear un modelo de regresión logística para ver si podemos crear un modelo suficientemente bueno que pueda predecir aquellos que puedan sobrevivir y ver así mediante los coeficienes de odds, ver aquellas categorías que más han sobrevivido. Pondremos como variable dependiente la variable Survived:
 
@@ -344,7 +349,7 @@ exp(coefficients(model))
 
 ```
 
-##4 Visualización de los datos
+## 4 Visualización de los datos
 
 Pasamos a hacer una breve visualización de los datos, para comprobar en las variables categóricas aquellas clases que más han sobrevivido y, así, confirmar si las conclusiones que hemos ido obteniendo anteriormente se confirman.
 
@@ -395,8 +400,15 @@ ggplot(data=titanic_without_na[1:filas,],aes(x=Embarked,fill=Survived_Categorica
 
 Como podemos observar, el lugar no es influyente en realidad aun que parezca que de Cherbourg hayan sobrevivido mas que de Queenstown o Southampton, ya que son otros los factores determinantes como el sexo o la clase social. Es decir, es posible por ejemplo que de Cherbourg haya mas mujeres de clase alta. 
 
-##5. Conclusiones
+## 5. Conclusiones
 
+Tras haber realizado el análisis de los datos hemos llegado a algunas conclusiones. En primer lugar, hemos observado mediante la prueba de correlación y comprobado más tarde mediante la regresión logística que la variable más influyente en si los pasajeros del Titanic sobrevivieron es sex, seguida de la variable pclass.
+
+Además, gracias al contraste de hipótesis y de las preguntas que decidimos plantear, sabemos que proporcionalmente sobrevivieron más mujeres que hombres. También, que la mayoría de pasajeros que sobrevivieron eran mayores de 30 años y que la proporción de los pasajeros que sobrevivieron de clase Medium y Lower no eran más que los que sobrevivieron de clase Upper.
+
+Mediante la regresión logística hemos comprobado la influencia de las variables a la hora de predecir si los pasajeros sobrevivieron. Las variables age, pclass, age_segmented y sex son significativas, exceptuando del grupo de edad de 70 a 79 años de la variable age_segmented.
+
+Finalmente, mediante su odds ratio hemos visto que los pasajeros de clase Medium y Upper sobrevivieron más que los de clase Lower de la variable pclass. También que sobrevivieron más mujeres que hombres y que el grupo de edad de personas que más sobrevivieron es el de 0 a 9 años.
 
 
 
